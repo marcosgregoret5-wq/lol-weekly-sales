@@ -207,4 +207,3 @@ for page in range(pages):
         )
 
 print("Finalizado")
-```
