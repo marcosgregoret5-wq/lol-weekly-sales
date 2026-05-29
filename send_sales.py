@@ -1,14 +1,24 @@
 import requests
+import os
 
-version = requests.get(
-    "https://ddragon.leagueoflegends.com/api/versions.json"
-).json()[0]
+WEBHOOK_URL = os.environ["DISCORD_WEBHOOK"]
 
-champions = requests.get(
-    f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/championFull.json"
-).json()["data"]
+image_url = "https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Nunu_3.jpg"
 
-nunu = champions["Nunu"]
+image_data = requests.get(image_url).content
 
-for skin in nunu["skins"]:
-    print(skin["num"], "-", skin["name"])
+with open("test_skin.jpg", "wb") as f:
+    f.write(image_data)
+
+with open("test_skin.jpg", "rb") as f:
+    requests.post(
+        WEBHOOK_URL,
+        data={
+            "content": "🎮 GPBot Tienda Semanal - Prueba Splash Art"
+        },
+        files={
+            "file": ("test_skin.jpg", f, "image/jpeg")
+        }
+    )
+
+print("Imagen enviada")
