@@ -1,5 +1,7 @@
 import requests
 
-js = requests.get("https://lolskinsale.com/scripts/script.js").text
+url = "https://script.google.com/macros/s/AKfycbxqlNW0mNo7FsGo0hR2_2jwJ_WAxC1HiJoKB92Sfupv_1llL1vz04DKRivr-vxPtpQwvQ/exec"
 
-print(js[:10000])
+data = requests.get(url).json()
+
+print(data[:3])
