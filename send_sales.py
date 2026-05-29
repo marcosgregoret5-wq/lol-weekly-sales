@@ -4,8 +4,11 @@ version = requests.get(
     "https://ddragon.leagueoflegends.com/api/versions.json"
 ).json()[0]
 
-url = f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/championFull.json"
+champions = requests.get(
+    f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/championFull.json"
+).json()["data"]
 
-data = requests.get(url).json()
+nunu = champions["Nunu"]
 
-print(list(data["data"].keys())[:20])
+for skin in nunu["skins"]:
+    print(skin["num"], "-", skin["name"])
