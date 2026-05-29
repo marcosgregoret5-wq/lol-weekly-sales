@@ -1,7 +1,7 @@
 import requests
 
-data = requests.get(
-    "https://script.google.com/macros/s/AKfycbxqlNW0mNo7FsGo0hR2_2jwJ_WAxC1HiJoKB92Sfupv_1llL1vz04DKRivr-vxPtpQwvQ/exec"
-).json()
+version = requests.get(
+    "https://ddragon.leagueoflegends.com/api/versions.json"
+).json()[0]
 
-print(data[0])
+print(version)
