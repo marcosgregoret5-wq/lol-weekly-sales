@@ -1,5 +1,5 @@
 import requests
 
-html = requests.get("https://lolskinsale.com/").text
+js = requests.get("https://lolskinsale.com/scripts/script.js").text
 
-print(html[:5000])
+print(js[:10000])
