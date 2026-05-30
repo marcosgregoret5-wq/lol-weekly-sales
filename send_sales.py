@@ -58,7 +58,7 @@ def cover_resize(img, size):
     nw, nh = int(w * scale), int(h * scale)
     img = img.resize((nw, nh), Image.LANCZOS)
     left = (nw - target_w) // 2
-    top = (nh - target_h) // 2
+    top = (nh - target_h) // 4
     return img.crop((left, top, left + target_w, top + target_h))
 
 def draw_rounded_rect(draw, box, radius, fill, outline=None, width=1):
@@ -142,7 +142,7 @@ for page in range(pages):
 
     draw.text((50, 35), "GPBot", fill=(255, 255, 255), font=font_brand)
     draw.text((205, 35), "Tienda Semanal", fill=(220, 170, 70), font=font_title)
-    draw.text((55, 105), "LEAGUE OF LEGENDS", fill=(120, 180, 220), font=font_subtitle)
+    #draw.text((55, 105), "LEAGUE OF LEGENDS", fill=(120, 180, 220), font=font_subtitle)
 
     draw.rounded_rectangle(
         (1120, 45, 1535, 130),
@@ -165,15 +165,6 @@ for page in range(pages):
         x = start_x + col * (card_w + gap_x)
         y = start_y + row * (card_h + gap_y)
 
-        draw_rounded_rect(
-            draw,
-            (x, y, x + card_w, y + card_h),
-            12,
-            fill=(8, 24, 38),
-            outline=(180, 125, 45),
-            width=2
-        )
-
         try:
             img_data = requests.get(skin["url"], timeout=20).content
             splash = Image.open(BytesIO(img_data)).convert("RGB")
@@ -183,13 +174,14 @@ for page in range(pages):
             print(e)
             draw.rectangle((x, y, x + card_w, y + img_h), fill=(30, 35, 45))
 
-        overlay = Image.new("RGBA", (card_w, 85), (5, 14, 24, 225))
-        canvas.paste(overlay, (x, y + img_h), overlay)
+        info_y = y + img_h - 0
+        overlay = Image.new("RGBA", (card_w, 80), (5, 14, 24, 225))
+        canvas.paste(overlay, (x, info_y), overlay)
 
-        draw.text((x + 16, y + img_h + 12), skin["skin"][:36], fill=(255, 255, 255), font=font_card_title)
+        draw.text((x + 16, info_y + 12), skin["skin"][:36], fill=(255, 255, 255), font=font_card_title)
 
         badge_x = x + 16
-        badge_y = y + img_h + 50
+        badge_y = info_y + 50
         draw.rounded_rectangle(
             (badge_x, badge_y, badge_x + 145, badge_y + 34),
             radius=7,
@@ -198,6 +190,15 @@ for page in range(pages):
         draw.text((badge_x + 13, badge_y + 5), f"{skin['discount']}% OFF", fill=(5, 12, 22), font=font_badge)
 
         draw.text((x + card_w - 130, badge_y + 3), f"{skin['price']} RP", fill=(180, 225, 255), font=font_price)
+
+        draw_rounded_rect(
+            draw,
+            (x, y, x + card_w, y + card_h),
+            12,
+            fill=None,
+            outline=(235, 175, 55),
+            width=2
+        )
 
     draw.line((55, 1190, 1545, 1190), fill=(160, 110, 45), width=2)
     draw.text((60, 1205), "GPBot - Bot de LoL", fill=(220, 170, 70), font=font_small)
