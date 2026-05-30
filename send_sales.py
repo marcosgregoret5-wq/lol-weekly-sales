@@ -167,9 +167,10 @@ for page in range(pages):
 
         px, py = price_slots[i]
         draw.rounded_rectangle(
-            (px - 8, py - 5, px + 78, py + 34),
-            radius=8,
-            fill=(247, 250, 255)
+draw.rectangle(
+    (px - 6, py - 3, px + 70, py + 30),
+    fill=(247, 250, 255)
+)
         )
         draw.text((px, py), str(skin["price"]), fill=(10, 16, 30), font=price_font)
 
