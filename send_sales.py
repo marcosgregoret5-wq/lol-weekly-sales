@@ -2,9 +2,9 @@ import requests
 import os
 import math
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
-WEBHOOK_URL = os.environ["DISCORD_WEBHOOK"]
+WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK", "")
 
 SALES_URL = "https://script.google.com/macros/s/AKfycbxqlNW0mNo7FsGo0hR2_2jwJ_WAxC1HiJoKB92Sfupv_1llL1vz04DKRivr-vxPtpQwvQ/exec"
 
@@ -30,189 +30,158 @@ SPECIAL_CHAMPIONS = {
 }
 
 def normalize(text):
-    return (
-        text.lower()
-        .replace("&", "and")
-        .replace("'", "")
-        .replace(".", "")
-        .replace("-", " ")
-        .strip()
-    )
+    return text.lower().replace("&", "and").replace("'", "").replace(".", "").replace("-", " ").strip()
 
-def get_font(size, bold=False):
-    names = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
-    ]
-    for name in names:
-        try:
-            return ImageFont.truetype(name, size)
-        except:
-            pass
-    return ImageFont.load_default()
+def font(size, bold=False):
+    path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    try:
+        return ImageFont.truetype(path, size)
+    except:
+        return ImageFont.load_default()
 
 def cover_resize(img, size):
-    target_w, target_h = size
+    tw, th = size
     w, h = img.size
-    scale = max(target_w / w, target_h / h)
+    scale = max(tw / w, th / h)
     nw, nh = int(w * scale), int(h * scale)
     img = img.resize((nw, nh), Image.LANCZOS)
-    left = (nw - target_w) // 2
-    top = (nh - target_h) // 4
-    return img.crop((left, top, left + target_w, top + target_h))
-
-def draw_rounded_rect(draw, box, radius, fill, outline=None, width=1):
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+    left = (nw - tw) // 2
+    top = int((nh - th) * 0.25)
+    return img.crop((left, top, left + tw, top + th))
 
 sales = requests.get(SALES_URL).json()
 sales = sorted(sales, key=lambda x: x["discount"], reverse=True)
 
-version = requests.get(
-    "https://ddragon.leagueoflegends.com/api/versions.json"
-).json()[0]
-
+version = requests.get("https://ddragon.leagueoflegends.com/api/versions.json").json()[0]
 champion_data = requests.get(
     f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/championFull.json"
 ).json()["data"]
 
-champ_lookup = {}
-for key, champ in champion_data.items():
-    champ_lookup[normalize(champ["name"])] = key
+champ_lookup = {normalize(champ["name"]): key for key, champ in champion_data.items()}
 
-resolved_skins = []
+resolved = []
 
 for sale in sales:
     champion_name = sale["champion"].lower()
-
-    if champion_name in SPECIAL_CHAMPIONS:
-        champion_id = SPECIAL_CHAMPIONS[champion_name]
-    else:
-        champion_id = champ_lookup.get(normalize(champion_name))
+    champion_id = SPECIAL_CHAMPIONS.get(champion_name) or champ_lookup.get(normalize(champion_name))
 
     if not champion_id:
-        print(f"No se encontró campeón: {champion_name}")
+        print("No se encontró campeón:", champion_name)
         continue
 
-    champion = champion_data[champion_id]
-    target_skin = normalize(sale["skin"])
-    skin_num = None
+    champ = champion_data[champion_id]
+    target = normalize(sale["skin"])
 
-    for skin in champion["skins"]:
-        if normalize(skin["name"]) == target_skin:
-            skin_num = skin["num"]
+    skin_num = None
+    for s in champ["skins"]:
+        if normalize(s["name"]) == target:
+            skin_num = s["num"]
             break
 
     if skin_num is None:
-        print(f"No se encontró skin: {sale['skin']}")
+        print("No se encontró skin:", sale["skin"])
         continue
 
-    splash_url = f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champion_id}_{skin_num}.jpg"
-
-    resolved_skins.append({
+    resolved.append({
         "skin": sale["skin"].title(),
+        "champion": sale["champion"].title(),
         "discount": sale["discount"],
         "price": sale["price"],
-        "url": splash_url,
-        "week": sale["week"]
+        "week": sale["week"],
+        "url": f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champion_id}_{skin_num}.jpg"
     })
 
-PAGE_SIZE = 9
-pages = math.ceil(len(resolved_skins) / PAGE_SIZE)
+# Coordenadas para template 1536x1152
+image_slots = [
+    (70, 182, 410, 185),   (528, 182, 410, 185),   (990, 182, 410, 185),
+    (70, 472, 410, 185),   (528, 472, 410, 185),   (990, 472, 410, 185),
+    (70, 762, 410, 185),   (528, 762, 410, 185),   (990, 762, 410, 185),
+]
 
-font_title = get_font(54, True)
-font_brand = get_font(34, True)
-font_subtitle = get_font(24, False)
-font_card_title = get_font(24, True)
-font_badge = get_font(22, True)
-font_price = get_font(26, True)
-font_small = get_font(18, False)
+text_slots = [
+    (73, 388, 345, 412),   (532, 388, 804, 412),   (994, 388, 1265, 412),
+    (73, 678, 345, 702),   (532, 678, 804, 702),   (994, 678, 1265, 702),
+    (73, 968, 345, 992),   (532, 968, 804, 992),   (994, 968, 1265, 992),
+]
+
+discount_slots = [
+    (398, 333), (857, 333), (1319, 333),
+    (398, 623), (857, 623), (1319, 623),
+    (398, 913), (857, 913), (1319, 913),
+]
+
+price_slots = [
+    (412, 394), (871, 394), (1333, 394),
+    (412, 684), (871, 684), (1333, 684),
+    (412, 974), (871, 974), (1333, 974),
+]
+
+name_font = font(18, True)
+champ_font = font(15, False)
+discount_font = font(24, True)
+price_font = font(27, True)
+
+PAGE_SIZE = 9
+pages = math.ceil(len(resolved) / PAGE_SIZE)
 
 for page in range(pages):
-    page_skins = resolved_skins[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
-
-    W, H = 1600, 1250
-    canvas = Image.new("RGB", (W, H), (5, 12, 22))
+    canvas = Image.open("template.png").convert("RGB")
     draw = ImageDraw.Draw(canvas)
 
-    for y in range(H):
-        r = int(5 + y / H * 8)
-        g = int(12 + y / H * 12)
-        b = int(22 + y / H * 25)
-        draw.line([(0, y), (W, y)], fill=(r, g, b))
+    page_items = resolved[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
 
-    draw.text((50, 35), "GPBot", fill=(255, 255, 255), font=font_brand)
-    draw.text((205, 35), "Tienda Semanal", fill=(220, 170, 70), font=font_title)
-    #draw.text((55, 105), "LEAGUE OF LEGENDS", fill=(120, 180, 220), font=font_subtitle)
-
-    draw.rounded_rectangle(
-        (1120, 45, 1535, 130),
-        radius=18,
-        outline=(190, 135, 55),
-        width=2,
-        fill=(10, 24, 38)
-    )
-    draw.text((1150, 65), f"Página {page + 1}/{pages}", fill=(220, 170, 70), font=font_card_title)
-    draw.text((1150, 98), f"{len(resolved_skins)} skins en oferta", fill=(235, 235, 235), font=font_small)
-
-    card_w, card_h = 480, 300
-    img_h = 215
-    gap_x, gap_y = 35, 35
-    start_x, start_y = 55, 170
-
-    for idx, skin in enumerate(page_skins):
-        row = idx // 3
-        col = idx % 3
-        x = start_x + col * (card_w + gap_x)
-        y = start_y + row * (card_h + gap_y)
+    for i, skin in enumerate(page_items):
+        x, y, w, h = image_slots[i]
 
         try:
             img_data = requests.get(skin["url"], timeout=20).content
             splash = Image.open(BytesIO(img_data)).convert("RGB")
-            splash = cover_resize(splash, (card_w, img_h))
-            canvas.paste(splash, (x, y))
+            splash = cover_resize(splash, (w, h))
+
+            # margen interno premium
+            splash = splash.resize((w - 14, h - 14), Image.LANCZOS)
+            canvas.paste(splash, (x + 7, y + 7))
+
         except Exception as e:
-            print(e)
-            draw.rectangle((x, y, x + card_w, y + img_h), fill=(30, 35, 45))
+            print("Error imagen:", e)
 
-        info_y = y + img_h - 0
-        overlay = Image.new("RGBA", (card_w, 80), (5, 14, 24, 225))
-        canvas.paste(overlay, (x, info_y), overlay)
+        name_x, name_y, champ_x, champ_y = text_slots[i]
 
-        draw.text((x + 16, info_y + 12), skin["skin"][:36], fill=(255, 255, 255), font=font_card_title)
-
-        badge_x = x + 16
-        badge_y = info_y + 50
+        # tapa textos viejos del template
         draw.rounded_rectangle(
-            (badge_x, badge_y, badge_x + 145, badge_y + 34),
-            radius=7,
-            fill=(235, 175, 55)
-        )
-        draw.text((badge_x + 13, badge_y + 5), f"{skin['discount']}% OFF", fill=(5, 12, 22), font=font_badge)
-
-        draw.text((x + card_w - 130, badge_y + 3), f"{skin['price']} RP", fill=(180, 225, 255), font=font_price)
-
-        draw_rounded_rect(
-            draw,
-            (x, y, x + card_w, y + card_h),
-            12,
-            fill=None,
-            outline=(235, 175, 55),
-            width=2
+            (name_x - 5, name_y - 5, name_x + 270, name_y + 45),
+            radius=8,
+            fill=(247, 250, 255)
         )
 
-    draw.line((55, 1190, 1545, 1190), fill=(160, 110, 45), width=2)
-    draw.text((60, 1205), "GPBot - Bot de LoL", fill=(220, 170, 70), font=font_small)
-    draw.text((600, 1205), "Datos: LoLSkinSale + Riot Data Dragon", fill=(215, 215, 215), font=font_small)
-    draw.text((1120, 1205), "No afiliado a Riot Games", fill=(170, 170, 170), font=font_small)
+        draw.text((name_x, name_y), skin["skin"][:28], fill=(10, 16, 30), font=name_font)
+        draw.text((champ_x, champ_y), skin["champion"][:24], fill=(115, 130, 170), font=champ_font)
+
+        dx, dy = discount_slots[i]
+        draw.rounded_rectangle(
+            (dx - 8, dy - 5, dx + 75, dy + 32),
+            radius=16,
+            fill=(250, 252, 255)
+        )
+        draw.text((dx, dy), f"-{skin['discount']}%", fill=(45, 95, 255), font=discount_font)
+
+        px, py = price_slots[i]
+        draw.rounded_rectangle(
+            (px - 8, py - 5, px + 78, py + 34),
+            radius=8,
+            fill=(247, 250, 255)
+        )
+        draw.text((px, py), str(skin["price"]), fill=(10, 16, 30), font=price_font)
 
     filename = f"sales_page_{page + 1}.png"
-    canvas.save(filename, quality=95)
+    canvas.save(filename)
 
-    with open(filename, "rb") as f:
-        requests.post(
-            WEBHOOK_URL,
-            data={"content": f"🎮 **GPBot Tienda Semanal** ({page + 1}/{pages})"},
-            files={"file": (filename, f, "image/png")}
-        )
+    if WEBHOOK_URL:
+        with open(filename, "rb") as f:
+            requests.post(
+                WEBHOOK_URL,
+                data={"content": f"🎮 **GPBot Tienda Semanal** | Página {page + 1}/{pages}"},
+                files={"file": (filename, f, "image/png")}
+            )
 
 print("Finalizado")
