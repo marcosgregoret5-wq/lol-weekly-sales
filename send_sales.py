@@ -53,6 +53,7 @@ sales = requests.get(SALES_URL).json()
 sales = sorted(sales, key=lambda x: x["discount"], reverse=True)
 
 version = requests.get("https://ddragon.leagueoflegends.com/api/versions.json").json()[0]
+
 champion_data = requests.get(
     f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/championFull.json"
 ).json()["data"]
@@ -73,6 +74,7 @@ for sale in sales:
     target = normalize(sale["skin"])
 
     skin_num = None
+
     for s in champ["skins"]:
         if normalize(s["name"]) == target:
             skin_num = s["num"]
@@ -91,7 +93,6 @@ for sale in sales:
         "url": f"https://ddragon.leagueoflegends.com/cdn/img/champion/splash/{champion_id}_{skin_num}.jpg"
     })
 
-# Coordenadas para template 1536x1152
 image_slots = [
     (70, 182, 410, 185),   (528, 182, 410, 185),   (990, 182, 410, 185),
     (70, 472, 410, 185),   (528, 472, 410, 185),   (990, 472, 410, 185),
@@ -125,12 +126,14 @@ PAGE_SIZE = 9
 pages = math.ceil(len(resolved) / PAGE_SIZE)
 
 for page in range(pages):
+
     canvas = Image.open("template.png").convert("RGB")
     draw = ImageDraw.Draw(canvas)
 
     page_items = resolved[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
 
     for i, skin in enumerate(page_items):
+
         x, y, w, h = image_slots[i]
 
         try:
@@ -138,7 +141,6 @@ for page in range(pages):
             splash = Image.open(BytesIO(img_data)).convert("RGB")
             splash = cover_resize(splash, (w, h))
 
-            # margen interno premium
             splash = splash.resize((w - 14, h - 14), Image.LANCZOS)
             canvas.paste(splash, (x + 7, y + 7))
 
@@ -147,32 +149,70 @@ for page in range(pages):
 
         name_x, name_y, champ_x, champ_y = text_slots[i]
 
-        # tapa textos viejos del template
-        draw.rounded_rectangle(
-draw.rectangle(
-    (name_x - 2, name_y - 2, name_x + 250, name_y + 38),
-    fill=(247, 250, 255)
-)
+        draw.rectangle(
+            (name_x - 2, name_y - 2, name_x + 280, name_y + 40),
+            fill=(247, 250, 255)
+        )
 
-        draw.text((name_x, name_y), skin["skin"][:28], fill=(10, 16, 30), font=name_font)
-        draw.text((champ_x, champ_y), skin["champion"][:24], fill=(115, 130, 170), font=champ_font)
+        draw.text(
+            (name_x, name_y),
+            skin["skin"][:28],
+            fill=(10, 16, 30),
+            font=name_font
+        )
+
+        draw.text(
+            (champ_x, champ_y),
+            skin["champion"][:24],
+            fill=(115, 130, 170),
+            font=champ_font
+        )
 
         dx, dy = discount_slots[i]
+
         draw.rounded_rectangle(
-            (dx - 8, dy - 5, dx + 75, dy + 32),
-            radius=16,
+            (dx - 5, dy - 3, dx + 80, dy + 35),
+            radius=15,
             fill=(250, 252, 255)
         )
-        draw.text((dx, dy), f"-{skin['discount']}%", fill=(45, 95, 255), font=discount_font)
+
+        draw.text(
+            (dx, dy),
+            f"-{skin['discount']}%",
+            fill=(45, 95, 255),
+            font=discount_font
+        )
 
         px, py = price_slots[i]
-        draw.rounded_rectangle(
-draw.rectangle(
-    (px - 6, py - 3, px + 70, py + 30),
-    fill=(247, 250, 255)
-)
+
+        draw.rectangle(
+            (px - 5, py - 3, px + 80, py + 35),
+            fill=(247, 250, 255)
         )
-        draw.text((px, py), str(skin["price"]), fill=(10, 16, 30), font=price_font)
+
+        draw.text(
+            (px, py),
+            str(skin["price"]),
+            fill=(10, 16, 30),
+            font=price_font
+        )
+
+    for empty_i in range(len(page_items), 9):
+
+        x, y, w, h = image_slots[empty_i]
+
+        draw.rounded_rectangle(
+            (x + 7, y + 7, x + w - 7, y + h + 80),
+            radius=18,
+            fill=(247, 250, 255)
+        )
+
+        draw.text(
+            (x + 90, y + 110),
+            "Sin más ofertas",
+            fill=(120, 130, 160),
+            font=name_font
+        )
 
     filename = f"sales_page_{page + 1}.png"
     canvas.save(filename)
@@ -181,8 +221,12 @@ draw.rectangle(
         with open(filename, "rb") as f:
             requests.post(
                 WEBHOOK_URL,
-                data={"content": f"🎮 **GPBot Tienda Semanal** | Página {page + 1}/{pages}"},
-                files={"file": (filename, f, "image/png")}
+                data={
+                    "content": f"🎮 **GPBot Tienda Semanal** | Página {page + 1}/{pages}"
+                },
+                files={
+                    "file": (filename, f, "image/png")
+                }
             )
 
 print("Finalizado")
