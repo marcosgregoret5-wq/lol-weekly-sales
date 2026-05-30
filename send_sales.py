@@ -149,10 +149,10 @@ for page in range(pages):
 
         # tapa textos viejos del template
         draw.rounded_rectangle(
-            (name_x - 5, name_y - 5, name_x + 270, name_y + 45),
-            radius=8,
-            fill=(247, 250, 255)
-        )
+draw.rectangle(
+    (name_x - 2, name_y - 2, name_x + 250, name_y + 38),
+    fill=(247, 250, 255)
+)
 
         draw.text((name_x, name_y), skin["skin"][:28], fill=(10, 16, 30), font=name_font)
         draw.text((champ_x, champ_y), skin["champion"][:24], fill=(115, 130, 170), font=champ_font)
