@@ -153,8 +153,22 @@ champ_font = font(15, False)
 discount_font = font(24, True)
 price_font = font(27, True)
 rp_font = font(15, True)
-empty_font = font(14, False)
 week_font = font(22, True)
+
+ROW_CROP_HEIGHTS = {
+    1: 455,
+    2: 735,
+    3: 1087,
+}
+
+def crop_to_promos(canvas, promo_count):
+    if promo_count <= 0:
+        return canvas
+
+    used_rows = math.ceil(promo_count / 3)
+    crop_height = ROW_CROP_HEIGHTS.get(used_rows, canvas.height)
+    crop_height = min(crop_height, canvas.height)
+    return canvas.crop((0, 0, canvas.width, crop_height))
 
 PAGE_SIZE = 9
 pages = math.ceil(len(resolved) / PAGE_SIZE)
@@ -257,16 +271,7 @@ for page in range(pages):
             font=rp_font
         )
 
-    for empty_i in range(len(page_items), 9):
-
-        x, y, w, h = image_slots[empty_i]
-
-        draw.text(
-            (x + 145, y + 150),
-            "Sin más ofertas",
-            fill=(120, 130, 160),
-            font=empty_font
-        )
+    canvas = crop_to_promos(canvas, len(page_items))
 
     filename = f"sales_page_{page + 1}.png"
     canvas.save(filename)
