@@ -1,6 +1,7 @@
 import requests
 import os
 import math
+from datetime import date, timedelta
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 
@@ -33,11 +34,21 @@ def normalize(text):
     return text.lower().replace("&", "and").replace("'", "").replace(".", "").replace("-", " ").strip()
 
 def font(size, bold=False):
-    path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    try:
-        return ImageFont.truetype(path, size)
-    except:
-        return ImageFont.load_default()
+
+    possible_paths = [
+        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/segoeuib.ttf" if bold else "C:/Windows/Fonts/segoeui.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+    ]
+
+    for path in possible_paths:
+        try:
+            return ImageFont.truetype(path, size)
+        except:
+            pass
+
+    return ImageFont.load_default()
 
 def cover_resize(img, size):
     tw, th = size
@@ -48,6 +59,26 @@ def cover_resize(img, size):
     left = (nw - tw) // 2
     top = int((nh - th) * 0.25)
     return img.crop((left, top, left + tw, top + th))
+
+def rounded_image(img, radius):
+    img = img.convert("RGBA")
+    mask = Image.new("L", img.size, 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle(
+        (0, 0, img.size[0] - 1, img.size[1] - 1),
+        radius=radius,
+        fill=255
+    )
+    img.putalpha(mask)
+    return img
+
+def current_week_text():
+    today = date.today()
+    days_since_tuesday = (today.weekday() - 1) % 7
+    start = today - timedelta(days=days_since_tuesday)
+    end = start + timedelta(days=7)
+    months = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
+    return f"{start.day:02d} {months[start.month - 1]} - {end.day:02d} {months[end.month - 1]}"
 
 sales = requests.get(SALES_URL).json()
 sales = sorted(sales, key=lambda x: x["discount"], reverse=True)
@@ -94,15 +125,15 @@ for sale in sales:
     })
 
 image_slots = [
-    (70, 182, 410, 185),   (528, 182, 410, 185),   (990, 182, 410, 185),
-    (70, 472, 410, 185),   (528, 472, 410, 185),   (990, 472, 410, 185),
-    (70, 762, 410, 185),   (528, 762, 410, 185),   (990, 762, 410, 185),
+    (70, 182, 410, 185),   (524, 182, 410, 185),   (980, 182, 410, 185),
+    (70, 462, 410, 185),   (524, 462, 410, 185),   (980, 462, 410, 185),
+    (70, 740, 410, 185),   (524, 740, 410, 185),   (980, 740, 410, 185),
 ]
 
 text_slots = [
-    (73, 388, 345, 412),   (532, 388, 804, 412),   (994, 388, 1265, 412),
-    (73, 678, 345, 702),   (532, 678, 804, 702),   (994, 678, 1265, 702),
-    (73, 968, 345, 992),   (532, 968, 804, 992),   (994, 968, 1265, 992),
+    (73, 395, 345, 412),   (532, 395, 804, 412),   (994, 395, 1265, 412),
+    (73, 675, 345, 702),   (532, 675, 804, 702),   (994, 675, 1265, 702),
+    (73, 950, 345, 992),   (532, 950, 804, 992),   (994, 950, 1265, 992),
 ]
 
 discount_slots = [
@@ -112,15 +143,18 @@ discount_slots = [
 ]
 
 price_slots = [
-    (412, 394), (871, 394), (1333, 394),
-    (412, 684), (871, 684), (1333, 684),
-    (412, 974), (871, 974), (1333, 974),
+    (412, 391), (871, 391), (1333, 391),
+    (412, 672), (871, 672), (1333, 672),
+    (412, 945), (871, 945), (1333, 945),
 ]
 
 name_font = font(18, True)
 champ_font = font(15, False)
 discount_font = font(24, True)
 price_font = font(27, True)
+rp_font = font(15, True)
+empty_font = font(14, False)
+week_font = font(22, True)
 
 PAGE_SIZE = 9
 pages = math.ceil(len(resolved) / PAGE_SIZE)
@@ -129,6 +163,13 @@ for page in range(pages):
 
     canvas = Image.open("template.png").convert("RGB")
     draw = ImageDraw.Draw(canvas)
+
+    draw.text(
+        (1215, 72),
+        current_week_text(),
+        fill=(10, 16, 30),
+        font=week_font
+    )
 
     page_items = resolved[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
 
@@ -141,13 +182,14 @@ for page in range(pages):
             splash = Image.open(BytesIO(img_data)).convert("RGB")
             splash = cover_resize(splash, (w, h))
 
-            splash = splash.resize((w - 14, h - 14), Image.LANCZOS)
-            canvas.paste(splash, (x + 7, y + 7))
+            splash = splash.resize((w - 8, h - 8), Image.LANCZOS)
+            splash = rounded_image(splash, 20)
+            canvas.paste(splash, (x - 7, y + 1), splash)
 
         except Exception as e:
             print("Error imagen:", e)
 
-        name_x, name_y, champ_x, champ_y = text_slots[i]
+        name_x, name_y, _, _ = text_slots[i]
 
         draw.rectangle(
             (name_x - 2, name_y - 2, name_x + 280, name_y + 40),
@@ -161,57 +203,69 @@ for page in range(pages):
             font=name_font
         )
 
-        draw.text(
-            (champ_x, champ_y),
-            skin["champion"][:24],
-            fill=(115, 130, 170),
-            font=champ_font
-        )
-
         dx, dy = discount_slots[i]
+        discount_text = f"-{skin['discount']}%"
+        discount_bbox = draw.textbbox((0, 0), discount_text, font=discount_font)
+        discount_w = discount_bbox[2] - discount_bbox[0] + 24
+        discount_h = 34
+        discount_x2 = dx + 82
+        discount_x1 = discount_x2 - discount_w
+        discount_y1 = dy - 4
+        discount_y2 = discount_y1 + discount_h
 
         draw.rounded_rectangle(
-            (dx - 5, dy - 3, dx + 80, dy + 35),
-            radius=15,
-            fill=(250, 252, 255)
+            (discount_x1 + 2, discount_y1 + 3, discount_x2 + 2, discount_y2 + 3),
+            radius=17,
+            fill=(208, 221, 255)
+        )
+
+        draw.rounded_rectangle(
+            (discount_x1, discount_y1, discount_x2, discount_y2),
+            radius=17,
+            fill=(45, 95, 255)
         )
 
         draw.text(
-            (dx, dy),
-            f"-{skin['discount']}%",
-            fill=(45, 95, 255),
+            (discount_x1 + 12, discount_y1 + 2),
+            discount_text,
+            fill=(255, 255, 255),
             font=discount_font
         )
 
         px, py = price_slots[i]
+        price_text = str(skin["price"])
+        price_bbox = draw.textbbox((0, 0), price_text, font=price_font)
+        price_w = price_bbox[2] - price_bbox[0]
 
-        draw.rectangle(
-            (px - 5, py - 3, px + 80, py + 35),
+        draw.rounded_rectangle(
+            (px - 48, py - 4, px + 104, py + 37),
+            radius=12,
             fill=(247, 250, 255)
         )
 
         draw.text(
-            (px, py),
-            str(skin["price"]),
+            (px - 34, py),
+            price_text,
             fill=(10, 16, 30),
             font=price_font
+        )
+
+        draw.text(
+            (px - 28 + price_w, py + 8),
+            "RP",
+            fill=(85, 103, 150),
+            font=rp_font
         )
 
     for empty_i in range(len(page_items), 9):
 
         x, y, w, h = image_slots[empty_i]
 
-        draw.rounded_rectangle(
-            (x + 7, y + 7, x + w - 7, y + h + 80),
-            radius=18,
-            fill=(247, 250, 255)
-        )
-
         draw.text(
-            (x + 90, y + 110),
+            (x + 145, y + 150),
             "Sin más ofertas",
             fill=(120, 130, 160),
-            font=name_font
+            font=empty_font
         )
 
     filename = f"sales_page_{page + 1}.png"
