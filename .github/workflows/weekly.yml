@@ -2,7 +2,7 @@ name: Weekly LoL Sales
 
 on:
   schedule:
-    - cron: "0 18 * * 1"
+    - cron: "0 22 * * 1"
   workflow_dispatch:
 
 jobs:
