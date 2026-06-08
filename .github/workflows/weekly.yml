@@ -2,8 +2,12 @@ name: Weekly LoL Sales
 
 on:
   schedule:
-    - cron: "0 22 * * 1"
+    - cron: "*/15 19-23 * * 1"
+    - cron: "*/15 0-2 * * 2"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   send:
@@ -18,6 +22,15 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - run: python send_sales.py
+      - run: python send_sales_reddit.py
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: Save sent Reddit post
+        run: |
+          test -f .last_reddit_sale.txt || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .last_reddit_sale.txt
+          git diff --cached --quiet || git commit -m "Update last sent Reddit sale"
+          git push
