@@ -16,6 +16,9 @@ REDDIT_USER = "MuffinSundae"
 SENT_POST_FILE = ".last_reddit_sale.txt"
 LATEST_POST_URL = None
 LATEST_POST_TEXT = None
+SPLASH_ZOOM = 1
+SPLASH_VERTICAL_POSITION = 0.00
+SPLASH_VERTICAL_OFFSET = 0
 
 HEADERS = {
     "User-Agent": "GPBot weekly sales by Marcos"
@@ -51,14 +54,20 @@ def font(size, bold=False):
     return ImageFont.load_default()
 
 
-def cover_resize(img, size):
+def cover_resize(img, size, zoom=1.0, vertical_position=0.25, vertical_offset=0):
     tw, th = size
     w, h = img.size
-    scale = max(tw / w, th / h)
+    scale = max(tw / w, th / h) * zoom
     nw, nh = int(w * scale), int(h * scale)
     img = img.resize((nw, nh), Image.LANCZOS)
+    if nw < tw or nh < th:
+        background = Image.new("RGB", (tw, th), (8, 14, 24))
+        background.paste(img, ((tw - nw) // 2, ((th - nh) // 2) + vertical_offset))
+        return background
     left = (nw - tw) // 2
-    top = int((nh - th) * 0.25)
+    vertical_position = max(0, min(1, vertical_position))
+    top = int((nh - th) * vertical_position) - vertical_offset
+    top = max(0, min(nh - th, top))
     return img.crop((left, top, left + tw, top + th))
 
 
@@ -366,7 +375,7 @@ for page in range(pages):
         try:
             img_data = requests.get(skin["url"], headers=HEADERS, timeout=20).content
             splash = Image.open(BytesIO(img_data)).convert("RGB")
-            splash = cover_resize(splash, (w, h))
+            splash = cover_resize(splash, (w, h), SPLASH_ZOOM, SPLASH_VERTICAL_POSITION, SPLASH_VERTICAL_OFFSET)
             splash = splash.resize((w - 8, h - 8), Image.LANCZOS)
             splash = rounded_image(splash, 20)
             canvas.paste(splash, (x - 7, y + 1), splash)
@@ -374,10 +383,6 @@ for page in range(pages):
             print("Error imagen:", exc)
 
         name_x, name_y, _, _ = text_slots[i]
-        draw.rectangle(
-            (name_x - 2, name_y - 2, name_x + 280, name_y + 40),
-            fill=(247, 250, 255),
-        )
         draw.text(
             (name_x, name_y),
             skin["skin"][:28],
@@ -417,11 +422,6 @@ for page in range(pages):
         price_bbox = draw.textbbox((0, 0), price_text, font=price_font)
         price_w = price_bbox[2] - price_bbox[0]
 
-        draw.rounded_rectangle(
-            (px - 48, py - 4, px + 104, py + 37),
-            radius=12,
-            fill=(247, 250, 255),
-        )
         draw.text(
             (px - 34, py),
             price_text,
